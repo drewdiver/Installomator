@@ -25,7 +25,7 @@ export PATH=/usr/bin:/bin:/usr/sbin:/sbin
 # also no actual installation will be performed
 # debug mode 1 will download to the directory the script is run in, but will not check the version
 # debug mode 2 will download to the temp directory, check for blocking processes, check the version, but will not install anything or remove the current version
-DEBUG=1
+DEBUG=0
 
 # notify behavior
 NOTIFY=success
@@ -171,6 +171,9 @@ DIALOG_LIST_ITEM_NAME=""
 NOTIFY_DIALOG=0
 # If this variable is set to 1, then we will check for installed Swift Dialog v. 2 or later, and use that for notification
 
+DOWNLOAD_DIRECTORY=""
+
+DOWNLOAD_ONLY=0
 
 # NOTE: How labels work
 
@@ -336,7 +339,7 @@ if [[ $(/usr/bin/arch) == "arm64" ]]; then
     fi
 fi
 VERSION="10.6beta"
-VERSIONDATE="2024-03-25"
+VERSIONDATE="2024-03-28"
 
 # MARK: Functions
 
@@ -348,10 +351,13 @@ cleanupAndExit() { # $1 = exit code, $2 message, $3 level
         printlog "Debugging enabled, Unmounting output was:\n$unmountingOut" DEBUG
     fi
     if [ "$DEBUG" -ne 1 ]; then
-        # remove the temporary working directory when done (only if DEBUG is not used)
-        printlog "Deleting $tmpDir" DEBUG
-        deleteTmpOut=$(rm -Rfv "$tmpDir")
-        printlog "Debugging enabled, Deleting tmpDir output was:\n$deleteTmpOut" DEBUG
+        # remove only if we are not wanting to keep the download
+        if [ "$DOWNLOAD_ONLY" -eq 0 ]; then
+            # remove the temporary working directory when done (only if DEBUG is not used)
+            printlog "Deleting $tmpDir" DEBUG
+            deleteTmpOut=$(rm -Rfv "$tmpDir")
+            printlog "Debugging enabled, Deleting tmpDir output was:\n$deleteTmpOut" DEBUG
+        fi
     fi
 
     # If we closed any processes, reopen the app again
@@ -384,6 +390,13 @@ reloadAsUser() {
     if [[ $currentUser != "loginwindow" ]]; then
         uid=$(id -u "$currentUser")
         su - $currentUser -c "${@}"
+    fi
+}
+
+createDownloadDirectory() {
+    # user configured a working directory, so we verify existence and permissions
+    if [ ! -d "$tmpDir" ] && if ! mkdir -p "$tmpDir"; then
+        cleanupAndExit 26 "Cannot create directory $tmpDir" ERROR
     fi
 }
 
@@ -8646,10 +8659,16 @@ if [[ -z $blockingProcesses ]]; then
     blockingProcesses=( $name )
 fi
 
+if [ -n $DOWNLOAD_DIRECTORY ];then 
+    # user defined a download directory
+    tmpDir="$DOWNLOAD_DIRECTORY"
+    createDownloadDirectory
 # MARK: determine tmp dir
-if [ "$DEBUG" -eq 1 ]; then
+elif [ "$DEBUG" -eq 1 ]; then
     # for debugging use script dir as working directory
     tmpDir=$(dirname "$0")
+elif [ "$DOWNLOAD_ONLY" -eq 1 ]; then
+    tmpDir="$DOWNLOAD_DIRECTORY"
 else
     # create temporary working directory
     tmpDir=$(mktemp -d )
@@ -8673,7 +8692,7 @@ fi
 if [[ -n $appNewVersion ]]; then
     printlog "Latest version of $name is $appNewVersion"
     if [[ $appversion == $appNewVersion ]]; then
-        if [[ $DEBUG -ne 1 ]]; then
+        if [[ $DEBUG -ne 1 ]] && [[ $DOWNLOAD_ONLY -ne 1 ]]; then
             printlog "There is no newer version available."
             if [[ $INSTALL != "force" ]]; then
                 message="$name, version $appNewVersion, is the latest version."
@@ -8802,32 +8821,35 @@ if [ -n "$installerTool" ]; then
     appName="$installerTool"
 fi
 
-case $type in
-    dmg)
-        installFromDMG
-        ;;
-    pkg)
-        installFromPKG
-        ;;
-    zip)
-        installFromZIP
-        ;;
-    tbz|bz2)
-        installFromTBZ
-        ;;
-    pkgInDmg)
-        installPkgInDmg
-        ;;
-    pkgInZip)
-        installPkgInZip
-        ;;
-    appInDmgInZip)
-        installAppInDmgInZip
-        ;;
-    *)
-        cleanupAndExit 99 "Cannot handle type $type" ERROR
-        ;;
-esac
+# perhaps an "if" to skp this if DOWNLOAD_ONLY set?
+if [ "$DOWNLOAD_ONLY" -eq 0 ]; then
+    case $type in
+        dmg)
+            installFromDMG
+            ;;
+        pkg)
+            installFromPKG
+            ;;
+        zip)
+            installFromZIP
+            ;;
+        tbz|bz2)
+            installFromTBZ
+            ;;
+        pkgInDmg)
+            installPkgInDmg
+            ;;
+        pkgInZip)
+            installPkgInZip
+            ;;
+        appInDmgInZip)
+            installAppInDmgInZip
+            ;;
+        *)
+            cleanupAndExit 99 "Cannot handle type $type" ERROR
+            ;;
+    esac
+fi
 
 updateDialog "wait" "Finishing..."
 

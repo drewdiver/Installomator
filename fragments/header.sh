@@ -25,7 +25,7 @@ export PATH=/usr/bin:/bin:/usr/sbin:/sbin
 # also no actual installation will be performed
 # debug mode 1 will download to the directory the script is run in, but will not check the version
 # debug mode 2 will download to the temp directory, check for blocking processes, check the version, but will not install anything or remove the current version
-DEBUG=1
+DEBUG=0
 
 # notify behavior
 NOTIFY=success
@@ -171,6 +171,9 @@ DIALOG_LIST_ITEM_NAME=""
 NOTIFY_DIALOG=0
 # If this variable is set to 1, then we will check for installed Swift Dialog v. 2 or later, and use that for notification
 
+DOWNLOAD_DIRECTORY=""
+
+DOWNLOAD_ONLY=0
 
 # NOTE: How labels work
 

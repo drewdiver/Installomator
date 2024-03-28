@@ -188,10 +188,16 @@ if [[ -z $blockingProcesses ]]; then
     blockingProcesses=( $name )
 fi
 
+if [ -n $DOWNLOAD_DIRECTORY ];then 
+    # user defined a download directory
+    tmpDir="$DOWNLOAD_DIRECTORY"
+    createDownloadDirectory
 # MARK: determine tmp dir
-if [ "$DEBUG" -eq 1 ]; then
+elif [ "$DEBUG" -eq 1 ]; then
     # for debugging use script dir as working directory
     tmpDir=$(dirname "$0")
+elif [ "$DOWNLOAD_ONLY" -eq 1 ]; then
+    tmpDir="$DOWNLOAD_DIRECTORY"
 else
     # create temporary working directory
     tmpDir=$(mktemp -d )
@@ -215,7 +221,7 @@ fi
 if [[ -n $appNewVersion ]]; then
     printlog "Latest version of $name is $appNewVersion"
     if [[ $appversion == $appNewVersion ]]; then
-        if [[ $DEBUG -ne 1 ]]; then
+        if [[ $DEBUG -ne 1 ]] && [[ $DOWNLOAD_ONLY -ne 1 ]]; then
             printlog "There is no newer version available."
             if [[ $INSTALL != "force" ]]; then
                 message="$name, version $appNewVersion, is the latest version."
@@ -344,32 +350,35 @@ if [ -n "$installerTool" ]; then
     appName="$installerTool"
 fi
 
-case $type in
-    dmg)
-        installFromDMG
-        ;;
-    pkg)
-        installFromPKG
-        ;;
-    zip)
-        installFromZIP
-        ;;
-    tbz|bz2)
-        installFromTBZ
-        ;;
-    pkgInDmg)
-        installPkgInDmg
-        ;;
-    pkgInZip)
-        installPkgInZip
-        ;;
-    appInDmgInZip)
-        installAppInDmgInZip
-        ;;
-    *)
-        cleanupAndExit 99 "Cannot handle type $type" ERROR
-        ;;
-esac
+# perhaps an "if" to skp this if DOWNLOAD_ONLY set?
+if [ "$DOWNLOAD_ONLY" -eq 0 ]; then
+    case $type in
+        dmg)
+            installFromDMG
+            ;;
+        pkg)
+            installFromPKG
+            ;;
+        zip)
+            installFromZIP
+            ;;
+        tbz|bz2)
+            installFromTBZ
+            ;;
+        pkgInDmg)
+            installPkgInDmg
+            ;;
+        pkgInZip)
+            installPkgInZip
+            ;;
+        appInDmgInZip)
+            installAppInDmgInZip
+            ;;
+        *)
+            cleanupAndExit 99 "Cannot handle type $type" ERROR
+            ;;
+    esac
+fi
 
 updateDialog "wait" "Finishing..."
 

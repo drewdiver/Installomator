@@ -8,10 +8,13 @@ cleanupAndExit() { # $1 = exit code, $2 message, $3 level
         printlog "Debugging enabled, Unmounting output was:\n$unmountingOut" DEBUG
     fi
     if [ "$DEBUG" -ne 1 ]; then
-        # remove the temporary working directory when done (only if DEBUG is not used)
-        printlog "Deleting $tmpDir" DEBUG
-        deleteTmpOut=$(rm -Rfv "$tmpDir")
-        printlog "Debugging enabled, Deleting tmpDir output was:\n$deleteTmpOut" DEBUG
+        # remove only if we are not wanting to keep the download
+        if [ "$DOWNLOAD_ONLY" -eq 0 ]; then
+            # remove the temporary working directory when done (only if DEBUG is not used)
+            printlog "Deleting $tmpDir" DEBUG
+            deleteTmpOut=$(rm -Rfv "$tmpDir")
+            printlog "Debugging enabled, Deleting tmpDir output was:\n$deleteTmpOut" DEBUG
+        fi
     fi
 
     # If we closed any processes, reopen the app again
@@ -44,6 +47,13 @@ reloadAsUser() {
     if [[ $currentUser != "loginwindow" ]]; then
         uid=$(id -u "$currentUser")
         su - $currentUser -c "${@}"
+    fi
+}
+
+createDownloadDirectory() {
+    # user configured a working directory, so we verify existence and permissions
+    if [ ! -d "$tmpDir" ] && if ! mkdir -p "$tmpDir"; then
+        cleanupAndExit 26 "Cannot create directory $tmpDir" ERROR
     fi
 }
 
